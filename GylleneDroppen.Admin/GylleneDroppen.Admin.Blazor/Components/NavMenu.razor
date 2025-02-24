@@ -1,0 +1,55 @@
+@using GylleneDroppen.Admin.Blazor.Services.Interfaces
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/">Admin Panel</a>
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/">Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/admin">Admin</a>
+                </li>
+            </ul>
+
+            <ul class="navbar-nav">
+                @if (_isAuthenticated)
+                {
+                <li class="nav-item">
+                    <button class="btn btn-danger" @onclick="Logout">Logout</button>
+                </li>
+                }
+                else
+                {
+                <li class="nav-item">
+                    <a class="nav-link" href="/login">Login</a>
+                </li>
+                }
+            </ul>
+        </div>
+    </div>
+</nav>
+
+@code {
+    private bool _isAuthenticated = false;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        var token = await AuthService.GetToken();
+        _isAuthenticated = !string.IsNullOrEmpty(token);
+    }
+    
+    private async Task Logout()
+    {
+        await AuthService.Logout();
+        Navigation.NavigateTo("/login", forceLoad: true);
+    }
+}

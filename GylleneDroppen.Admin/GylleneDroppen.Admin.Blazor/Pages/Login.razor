@@ -1,0 +1,40 @@
+@page "/login"
+@using GylleneDroppen.Admin.Blazor.Dtos.Auth
+@using GylleneDroppen.Admin.Blazor.Services.Interfaces
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<h3>Login</h3>
+
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+
+<div class="card p-3">
+    <form @onsubmit="HandleLogin">
+        <div class="mb-3">
+            <label class="form-label">Email:</label>
+            <input @bind="_loginModel.Email" type="email" class="form-control" required />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Password:</label>
+            <input @bind="_loginModel.Password" type="password" class="form-control" required />
+        </div>
+        <button type="submit" class="btn btn-primary">Login</button>
+    </form>
+</div>
+
+@code {
+    private readonly LoginRequest _loginModel = new LoginRequest();
+    private string _errorMessage = "";
+
+    private async Task HandleLogin()
+    {
+        var success = await AuthService.Login(_loginModel);
+        if (!success)
+        {
+            _errorMessage = "Invalid email or password.";
+        }
+    }
+}

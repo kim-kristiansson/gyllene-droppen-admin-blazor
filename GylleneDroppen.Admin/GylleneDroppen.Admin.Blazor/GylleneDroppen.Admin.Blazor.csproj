@@ -8,13 +8,14 @@
 
     <ItemGroup>
         <PackageReference Include="Blazored.LocalStorage" Version="4.5.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="9.0.2" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.0"/>
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="9.0.0" PrivateAssets="all"/>
+        <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.6.0" />
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="Layout\" />
-      <Folder Include="Pages\" />
+      <Folder Include="wwwroot\Dtos\" />
     </ItemGroup>
 
 </Project>
