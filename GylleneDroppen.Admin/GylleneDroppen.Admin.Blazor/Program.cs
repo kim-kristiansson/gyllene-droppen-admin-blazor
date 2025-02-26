@@ -16,8 +16,11 @@ builder.Services.AddBlazoredLocalStorage();
 
 builder.Services.AddScoped(sp => new HttpClient
 {
-    BaseAddress = new Uri("http://localhost:5027/") // Change this to your actual API URL
+    BaseAddress = new Uri("https://localhost:7081/"), 
+    DefaultRequestHeaders = { { "Accept", "application/json" } }
 });
+
+
 
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthenticationStateProvider>();

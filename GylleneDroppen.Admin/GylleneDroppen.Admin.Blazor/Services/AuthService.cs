@@ -4,6 +4,7 @@ using GylleneDroppen.Admin.Blazor.Dtos.Auth;
 using GylleneDroppen.Admin.Blazor.Providers;
 using GylleneDroppen.Admin.Blazor.Services.Interfaces;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.WebAssembly.Http;
 
 namespace GylleneDroppen.Admin.Blazor.Services;
 
@@ -13,30 +14,47 @@ public class AuthService(
     CustomAuthenticationStateProvider authStateProvider,
     NavigationManager navigationManager) : IAuthService
 {
-    public async Task<bool> Login(LoginRequest loginRequest)
+    public async Task<string?> Login(LoginRequest loginRequest)
     {
-        var response = await httpClient.PostAsJsonAsync("api/auth/login", loginRequest);
+        var request = new HttpRequestMessage(HttpMethod.Post, "api/auth/login")
+        {
+            Content = JsonContent.Create(loginRequest)
+        };
 
+        request.SetBrowserRequestCredentials(BrowserRequestCredentials.Include);
+
+        var response = await httpClient.SendAsync(request);
+    
         if (!response.IsSuccessStatusCode)
-            return false;
+        {
+            var errorMessage = await response.Content.ReadAsStringAsync();
+            return errorMessage;
+        }
 
-        var authResponse = await response.Content.ReadFromJsonAsync<AuthResponse>();
-
-        if (authResponse?.Role is not "Admin")
-            return false;
+        var authState = await authStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
         
-
-        await authStateProvider.MarkUserAsAuthenticated(authResponse.AccessToken);
-
+        if(user.Identity is not {IsAuthenticated: true})
+            return "Login failed. Please try again.";
+        
+        if(!user.IsInRole("Admin"))
+            return "You are not authorized to access the admin panel.";
+        
         navigationManager.NavigateTo("/", forceLoad: true);
-        return true;
+        return null;
     }
+
 
     public async Task Logout()
     {
-        await authStateProvider.MarkUserAsLoggedOut();
+        await httpClient.PostAsync("api/auth/logout", null);
+        authStateProvider.MarkUserAsLoggedOut();
+    
+        await authStateProvider.GetAuthenticationStateAsync();
+
         navigationManager.NavigateTo("/login", forceLoad: true);
     }
+
 
     public async Task<string?> GetToken()
     {

@@ -1,0 +1,46 @@
+@page "/"
+@attribute [Authorize]
+@using GylleneDroppen.Admin.Blazor.Services.Interfaces
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IAuthService AuthService
+
+<PageTitle>Dashboard</PageTitle>
+
+<div class="container">
+    <div class="card">
+        <div class="card-body">
+            <h1 class="card-title">Welcome, @_userEmail!</h1>
+            <p class="card-text">You're logged in as an admin. Manage users, events, and settings here.</p>
+
+            <div class="quick-links">
+                <a href="/users" class="btn btn-primary">Manage Users</a>
+                <a href="/events" class="btn btn-secondary">Manage Events</a>
+                <a href="/settings" class="btn btn-outline-dark">Settings</a>
+            </div>
+
+            <button class="btn btn-danger mt-4" @onclick="Logout">Logout</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string _userEmail = "Loading...";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity is { IsAuthenticated: true })
+        {
+            _userEmail = user.Identity.Name ?? "Admin";
+        }
+    }
+
+    private async Task Logout()
+    {
+        await AuthService.Logout();
+    }
+}

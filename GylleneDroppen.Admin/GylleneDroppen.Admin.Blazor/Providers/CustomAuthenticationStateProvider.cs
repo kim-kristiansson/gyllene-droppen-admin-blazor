@@ -1,8 +1,9 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Security.Claims;
 using Blazored.LocalStorage;
+using GylleneDroppen.Admin.Blazor.Dtos.Auth;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.WebAssembly.Http;
 
 namespace GylleneDroppen.Admin.Blazor.Providers;
 
@@ -11,57 +12,43 @@ public class CustomAuthenticationStateProvider(HttpClient httpClient, ILocalStor
 {
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
     {
-        var token = await localStorage.GetItemAsync<string>("accessToken");
-
-        if (string.IsNullOrEmpty(token))
-        {
-            return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
-        }
-
-        httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        var claims = ParseClaimsFromJwt(token);
-        var user = new ClaimsPrincipal(new ClaimsIdentity(claims, "jwt"));
-
+        var user = await GetCurrentUserAsync();
         return new AuthenticationState(user);
     }
 
-    public async Task MarkUserAsAuthenticated(string token)
+    public async Task MarkUserAsAuthenticated()
     {
-        await localStorage.SetItemAsync("accessToken", token);
-        httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        var claims = ParseClaimsFromJwt(token);
-        var user = new ClaimsPrincipal(new ClaimsIdentity(claims, "jwt"));
-
-        NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(user))); // ✅ Fix
+        var user = await GetCurrentUserAsync();
+        NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(user)));
     }
 
-    public async Task MarkUserAsLoggedOut()
+    public void MarkUserAsLoggedOut()
     {
-        await localStorage.RemoveItemAsync("accessToken");
-        httpClient.DefaultRequestHeaders.Authorization = null;
-
         var anonymousUser = new ClaimsPrincipal(new ClaimsIdentity());
-        NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(anonymousUser))); // ✅ Fix
+        NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(anonymousUser)));
     }
 
-    private static List<Claim> ParseClaimsFromJwt(string token)
+    private async Task<ClaimsPrincipal> GetCurrentUserAsync()
     {
-        var handler = new JwtSecurityTokenHandler();
-        var jwt = handler.ReadJwtToken(token);
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/auth/me");
+        request.SetBrowserRequestCredentials(BrowserRequestCredentials.Include);
 
-        if (jwt.Claims == null || !jwt.Claims.Any())
-        {
-            return [];
-        }
+        var response = await httpClient.SendAsync(request);
 
-        var claims = new List<Claim>(jwt.Claims);
+        if (!response.IsSuccessStatusCode)
+            return new ClaimsPrincipal(new ClaimsIdentity());
 
-        var roleClaims = jwt.Claims.Where(c => c.Type is ClaimTypes.Role or "role")
-            .Select(c => new Claim(ClaimTypes.Role, c.Value));
-        claims.AddRange(roleClaims);
+        var claims = await response.Content.ReadFromJsonAsync<List<ClaimResponse>>();
 
-        return claims;
+        if (claims is null || claims.Count == 0)
+            return new ClaimsPrincipal(new ClaimsIdentity());
+
+        var identity = new ClaimsIdentity(claims.Select(c => new Claim(c.Type, c.Value)), "cookie");
+        return new ClaimsPrincipal(identity);
+    }
+
+    public void NotifyAuthStateChanged()
+    {
+        NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()))));
     }
 }
