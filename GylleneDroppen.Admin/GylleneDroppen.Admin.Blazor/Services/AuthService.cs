@@ -47,13 +47,16 @@ public class AuthService(
 
     public async Task Logout()
     {
-        await httpClient.PostAsync("api/auth/logout", null);
+        var request = new HttpRequestMessage(HttpMethod.Post, "api/auth/logout");
+        request.SetBrowserRequestCredentials(BrowserRequestCredentials.Include);
+
+        await httpClient.SendAsync(request);
+
         authStateProvider.MarkUserAsLoggedOut();
-    
-        await authStateProvider.GetAuthenticationStateAsync();
 
         navigationManager.NavigateTo("/login", forceLoad: true);
     }
+
 
 
     public async Task<string?> GetToken()

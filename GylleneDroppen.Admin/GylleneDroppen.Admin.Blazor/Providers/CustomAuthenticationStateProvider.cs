@@ -49,6 +49,7 @@ public class CustomAuthenticationStateProvider(HttpClient httpClient, ILocalStor
 
     public void NotifyAuthStateChanged()
     {
-        NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()))));
+        var anonymousUser = new ClaimsPrincipal(new ClaimsIdentity());
+        NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(anonymousUser)));
     }
 }

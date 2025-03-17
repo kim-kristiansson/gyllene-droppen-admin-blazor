@@ -24,7 +24,9 @@ builder.Services.AddScoped(sp => new HttpClient
 
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthenticationStateProvider>();
-builder.Services.AddScoped<CustomAuthenticationStateProvider>(); // Ensure DI works
+builder.Services.AddScoped<CustomAuthenticationStateProvider>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IEventService, EventService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
 
 await builder.Build().RunAsync();

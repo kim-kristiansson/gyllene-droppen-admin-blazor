@@ -1,0 +1,184 @@
+@page "/create-event"
+@using System.Security.Claims
+@using GylleneDroppen.Admin.Blazor.Services.Interfaces
+@using GylleneDroppen.Admin.Blazor.Dtos.Event
+@using GylleneDroppen.Admin.Blazor.Dtos.Admin
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IEventService EventService
+@inject IAdminService AdminService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Create Event</PageTitle>
+
+<div class="container">
+    <div class="card">
+        <div class="card-body">
+            <h1 class="card-title">Create Event</h1>
+
+            <EditForm Model="_eventModel" OnValidSubmit="HandleCreateEvent">
+                <DataAnnotationsValidator />
+
+                <div class="mb-3">
+                    <label class="form-label">Title</label>
+                    <InputText class="form-control" @bind-Value="_eventModel.Title" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Description</label>
+                    <InputTextArea class="form-control" @bind-Value="_eventModel.Description" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Location</label>
+                    <InputText class="form-control" @bind-Value="_eventModel.Location" />
+                </div>
+
+                <!-- Organizer Selection -->
+                <div class="mb-3">
+                    <label class="form-label">Organizer</label>
+                    <InputSelect class="form-control" @bind-Value="_eventModel.OrganizerId">
+                        <option value="">Select an Organizer</option>
+                        @if (Admins is not null)
+                        {
+                            @foreach (var admin in Admins)
+                            {
+                                <option value="@admin.Id">@admin.FirstName @admin.LastName (@admin.Email)</option>
+                            }
+                        }
+                    </InputSelect>
+                </div>
+
+                <!-- Start Date and Time -->
+                <div class="mb-3">
+                    <label class="form-label">Start Date</label>
+                    <InputDate class="form-control" @bind-Value="StartDate" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Start Time (HH:mm)</label>
+                    <InputText class="form-control" @bind-Value="StartTimeString" placeholder="HH:mm" />
+                </div>
+
+                <!-- End Date and Time -->
+                <div class="mb-3">
+                    <label class="form-label">End Date</label>
+                    <InputDate class="form-control" @bind-Value="EndDate" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">End Time (HH:mm)</label>
+                    <InputText class="form-control" @bind-Value="EndTimeString" placeholder="HH:mm" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Capacity</label>
+                    <InputNumber class="form-control" @bind-Value="_eventModel.Capacity" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Price</label>
+                    <InputNumber class="form-control" @bind-Value="_eventModel.Price" />
+                </div>
+
+                <!-- Deadline Date and Time -->
+                <div class="mb-3">
+                    <label class="form-label">Deadline Date</label>
+                    <InputDate class="form-control" @bind-Value="DeadlineDate" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Deadline Time (HH:mm)</label>
+                    <InputText class="form-control" @bind-Value="DeadlineTimeString" placeholder="HH:mm" />
+                </div>
+
+                <button class="btn btn-success" type="submit">Create Event</button>
+            </EditForm>
+
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <div class="alert alert-danger mt-3">@_errorMessage</div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<AdminResponse>? Admins;
+    private readonly CreateEventRequest _eventModel = new();
+    private string? _errorMessage;
+
+    private DateTime StartDate = DateTime.Today;
+    private string StartTimeString = "18:00"; // Default time
+
+    private DateTime EndDate = DateTime.Today;
+    private string EndTimeString = "20:00"; // Default time
+
+    private DateTime DeadlineDate = DateTime.Today;
+    private string DeadlineTimeString = "23:59"; // Default time
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load admins on page load
+        Admins = await AdminService.GetAdminsAsync();
+    }
+
+    private async Task HandleCreateEvent()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity is not { IsAuthenticated: true })
+        {
+            _errorMessage = "You must be logged in.";
+            return;
+        }
+
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            _errorMessage = "User ID not found.";
+            return;
+        }
+
+        // Convert date and time strings into DateTime objects
+        if (!TryParseTime(StartTimeString, out var startTime) ||
+            !TryParseTime(EndTimeString, out var endTime) ||
+            !TryParseTime(DeadlineTimeString, out var deadlineTime))
+        {
+            _errorMessage = "Invalid time format. Use HH:mm.";
+            return;
+        }
+
+        // Combine date and time, ensuring it's in UTC
+        var startDateTime = DateTime.SpecifyKind(StartDate.Date + startTime, DateTimeKind.Utc);
+        var endDateTime = DateTime.SpecifyKind(EndDate.Date + endTime, DateTimeKind.Utc);
+        var deadlineDateTime = DateTime.SpecifyKind(DeadlineDate.Date + deadlineTime, DateTimeKind.Utc);
+
+        var createEventRequest = new CreateEventRequest
+        {
+            Title = _eventModel.Title,
+            Description = _eventModel.Description,
+            Location = _eventModel.Location,
+            StartTime = startDateTime,
+            EndTime = endDateTime,
+            Capacity = _eventModel.Capacity,
+            Price = _eventModel.Price,
+            Deadline = deadlineDateTime,
+            OrganizerId = _eventModel.OrganizerId, // Selected admin
+            CreatedById = Guid.Parse(userId)
+        };
+
+        _errorMessage = await EventService.CreateEvent(createEventRequest);
+
+        if (string.IsNullOrEmpty(_errorMessage))
+        {
+            Navigation.NavigateTo("/events");
+        }
+    }
+
+    private bool TryParseTime(string timeString, out TimeSpan time)
+    {
+        return TimeSpan.TryParse(timeString, out time);
+    }
+}
